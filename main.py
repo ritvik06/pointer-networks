@@ -132,12 +132,13 @@ class PointerNetwork(object):
         correct_order = 0
         all_order = 0
 
-        with tf.Session() as sess:
+        sess = tf.Session()
+        with sess.as_default():
             merged = tf.merge_all_summaries()
             writer = tf.train.SummaryWriter("/tmp/pointer_logs", sess.graph)
             init = tf.initialize_all_variables()
             sess.run(init)
-            for i in range(10000):
+            for i in range(100000):
                 encoder_input_data, decoder_input_data, targets_data = dataset.next_batch(
                     FLAGS.batch_size, FLAGS.max_steps)
 
@@ -147,8 +148,8 @@ class PointerNetwork(object):
                 d_x, l = sess.run([loss, train_op], feed_dict=feed_dict)
                 train_loss_value = 0.9 * train_loss_value + 0.1 * d_x
                                 
-                if i % 100 == 0:
-                    print('Step: %d' % i)
+                if (i+1) % 100 == 0:
+                    print('Step: %d' % i+1)
                     print("Train: ", train_loss_value)
 
                 encoder_input_data, decoder_input_data, targets_data = dataset.next_batch(
@@ -162,7 +163,7 @@ class PointerNetwork(object):
                 
                 test_loss_value = 0.9 * test_loss_value + 0.1 * sess.run(test_loss, feed_dict=feed_dict)
 
-                if i % 100 == 0:
+                if (i+1) % 100 == 0:
                     print("Test: ", test_loss_value)
 
                 predictions_order = np.concatenate([np.expand_dims(prediction , 0) for prediction in predictions])

@@ -113,7 +113,7 @@ def pointer_decoder(decoder_inputs, initial_state, attention_states, cell,
                 inp = tf.pack(decoder_inputs)
                 inp = tf.transpose(inp, perm=[1, 0, 2])
                 inp = tf.reshape(inp, [-1, attn_length, input_size])
-                inp = tf.reduce_sum(inp * tf.reshape(tf.nn.softmax(output), [-1, attn_length, 1]), 1)
+                inp = tf.reduce_sum(inp * tf.reshape(tf.one_hot(tf.argmax(output, dimension=0),attention_vec_size), [-1, attn_length, 1]), 1)
                 inp = tf.stop_gradient(inp)
                 inps.append(inp)
 
