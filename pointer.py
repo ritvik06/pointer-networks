@@ -38,15 +38,16 @@ from tensorflow.python.ops import rnn_cell
 from tensorflow.python.ops import sparse_ops
 from tensorflow.python.ops import variable_scope as vs
 
-def multi_hot(input, attention_vec_size, threshold=0.3):
+def multi_hot(input, attention_vec_size,  threshold=0.3):
     output = tf.transpose(input)
     output = tf.map_fn(
             lambda x: tf.maximum(
-                tf.map_fn(lambda y: tf.select(tf.greater_equal(y,threshold), tf.Variable(1.0) , tf.Variable(0.0)), x),
+                tf.select(tf.greater_equal(x,tf.fill(tf.shape(x),threshold)), tf.ones_like(x) , tf.zeros_like(x)),
                 tf.one_hot(tf.argmax(x, dimension = 0), attention_vec_size)
                 )
         , output)
     output = tf.transpose(output)
+    #output = tf.one_hot(tf.argmax(input, dimension=0),attention_vec_size)
     return output
 
 def pointer_decoder(decoder_inputs, initial_state, attention_states, cell,
