@@ -149,7 +149,7 @@ class PointerNetwork(object):
                 train_loss_value = 0.9 * train_loss_value + 0.1 * d_x
                                 
                 if (i+1) % 100 == 0:
-                    print('Step: %d' % i+1)
+                    print('Step:', i+1)
                     print("Train: ", train_loss_value)
 
                 encoder_input_data, decoder_input_data, targets_data = dataset.next_batch(

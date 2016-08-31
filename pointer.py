@@ -38,6 +38,16 @@ from tensorflow.python.ops import rnn_cell
 from tensorflow.python.ops import sparse_ops
 from tensorflow.python.ops import variable_scope as vs
 
+def multi_hot(input, attention_vec_size, threshold=0.3):
+    output = tf.transpose(input)
+    output = tf.map_fn(
+            lambda x: tf.maximum(
+                tf.map_fn(lambda y: tf.select(tf.greater_equal(y,threshold), tf.Variable(1.0) , tf.Variable(0.0)), x),
+                tf.one_hot(tf.argmax(x, dimension = 0), attention_vec_size)
+                )
+        , output)
+    output = tf.transpose(output)
+    return output
 
 def pointer_decoder(decoder_inputs, initial_state, attention_states, cell,
                     feed_prev=True, dtype=dtypes.float32, scope=None):
@@ -113,7 +123,7 @@ def pointer_decoder(decoder_inputs, initial_state, attention_states, cell,
                 inp = tf.pack(decoder_inputs)
                 inp = tf.transpose(inp, perm=[1, 0, 2])
                 inp = tf.reshape(inp, [-1, attn_length, input_size])
-                inp = tf.reduce_sum(inp * tf.reshape(tf.one_hot(tf.argmax(output, dimension=0),attention_vec_size), [-1, attn_length, 1]), 1)
+                inp = tf.reduce_sum(inp * tf.reshape(multi_hot(output, attention_vec_size), [-1, attn_length, 1]), 1)
                 inp = tf.stop_gradient(inp)
                 inps.append(inp)
 
