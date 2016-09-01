@@ -176,7 +176,7 @@ class PointerNetwork(object):
                                     axis=1))
                 all_order += FLAGS.batch_size
 
-                if i % 100 == 0:
+                if (i+1) % 100 == 0:
                     print('Correct order / All order: %f' % (correct_order / all_order))
                     correct_order = 0
                     all_order = 0
