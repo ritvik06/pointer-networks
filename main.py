@@ -6,6 +6,7 @@ from __future__ import absolute_import, division, print_function
 
 import random
 
+import math
 import numpy as np
 import tensorflow as tf
 
@@ -15,9 +16,9 @@ from pointer import pointer_decoder
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
-flags.DEFINE_integer('batch_size', 32, 'Batch size.  ')
+flags.DEFINE_integer('batch_size', 64, 'Batch size.  ')
 flags.DEFINE_integer('max_steps', 10, 'Number of numbers to sort.  ')
-flags.DEFINE_integer('rnn_size', 32, 'RNN size.  ')
+flags.DEFINE_integer('rnn_size', 256, 'RNN size.  ')
 
 
 class PointerNetwork(object):
@@ -116,38 +117,55 @@ class PointerNetwork(object):
             loss += tf.nn.softmax_cross_entropy_with_logits(output, target) * weight
 
         loss = tf.reduce_mean(loss)
+        tf.scalar_summary('train_loss',loss)
 
         test_loss = 0.0
         for output, target, weight in zip(self.predictions, self.decoder_targets, self.target_weights):
             test_loss += tf.nn.softmax_cross_entropy_with_logits(output, target) * weight
 
         test_loss = tf.reduce_mean(test_loss)
-
+        tf.scalar_summary('test_loss', test_loss)
         optimizer = tf.train.AdamOptimizer()
         train_op = optimizer.minimize(loss)
         
         train_loss_value = 0.0
         test_loss_value = 0.0
         
-        correct_order = 0
-        all_order = 0
+        correct_order = 1.0
+        all_order = 1.0
 
         sess = tf.Session()
         with sess.as_default():
             merged = tf.merge_all_summaries()
-            writer = tf.train.SummaryWriter("/tmp/pointer_logs", sess.graph)
+            writer = tf.train.SummaryWriter("./tmp/pointer_logs/multi_hot", sess.graph)
             init = tf.initialize_all_variables()
             sess.run(init)
-            for i in range(100000):
+            for i in range(int(math.ceil(1000000/FLAGS.batch_size))):
                 encoder_input_data, decoder_input_data, targets_data = dataset.next_batch(
                     FLAGS.batch_size, FLAGS.max_steps)
 
                 # Train
                 feed_dict = self.create_feed_dict(
                     encoder_input_data, decoder_input_data, targets_data)
-                d_x, l = sess.run([loss, train_op], feed_dict=feed_dict)
+                if (i+1)%10 == 0:
+                    if (i+1)%100 == 0:
+                    #record run metadata
+                        run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+                        run_metadata = tf.RunMetadata()
+                        summary, d_x, l = sess.run([merged, loss, train_op], feed_dict=feed_dict, 
+                                options=run_options,
+                                run_metadata=run_metadata)
+                        writer.add_run_metadata(run_metadata, 'step%d'%(i+1))
+                        writer.add_summary(summary, (i+1))
+
+                    else:
+                        summary, d_x, l = sess.run([merged, loss, train_op], feed_dict=feed_dict)
+                        writer.add_summary(summary, (i+1))
+                else:
+                    d_x, l = sess.run([loss, train_op], feed_dict = feed_dict)
+
                 train_loss_value = 0.9 * train_loss_value + 0.1 * d_x
-                                
+
                 if (i+1) % 100 == 0:
                     print('Step:', i+1)
                     print("Train: ", train_loss_value)
