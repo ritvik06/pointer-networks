@@ -12,13 +12,13 @@ import tensorflow as tf
 
 from dataset import DataGenerator
 from pointer import pointer_decoder
-
+from scipy.spatial import ConvexHull
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
-flags.DEFINE_integer('batch_size', 64, 'Batch size.  ')
+flags.DEFINE_integer('batch_size', 128, 'Batch size.  ')
 flags.DEFINE_integer('max_steps', 10, 'Number of numbers to sort.  ')
-flags.DEFINE_integer('rnn_size', 256, 'RNN size.  ')
+flags.DEFINE_integer('rnn_size', 512, 'RNN size.  ')
 
 
 class PointerNetwork(object):
@@ -45,7 +45,7 @@ class PointerNetwork(object):
         self.global_step = tf.Variable(0, trainable=False)
 
         
-        cell = tf.nn.rnn_cell.GRUCell(size)
+        cell = tf.nn.rnn_cell.LSTMCell(size)
         if num_layers > 1:
             cell = tf.nn.rnn_cell.MultiRNNCell([single_cell] * num_layers)
             
@@ -140,9 +140,9 @@ class PointerNetwork(object):
             writer = tf.train.SummaryWriter("./tmp/pointer_logs/multi_hot", sess.graph)
             init = tf.initialize_all_variables()
             sess.run(init)
-            for i in range(int(math.ceil(1000000/FLAGS.batch_size))):
+            for i in range(int(math.ceil(10000000/FLAGS.batch_size))):
                 encoder_input_data, decoder_input_data, targets_data = dataset.next_batch(
-                    FLAGS.batch_size, FLAGS.max_steps)
+                    FLAGS.batch_size, FLAGS.max_steps, convex_hull=True)
 
                 # Train
                 feed_dict = self.create_feed_dict(
@@ -171,7 +171,7 @@ class PointerNetwork(object):
                     print("Train: ", train_loss_value)
 
                 encoder_input_data, decoder_input_data, targets_data = dataset.next_batch(
-                    FLAGS.batch_size, FLAGS.max_steps, train_mode=False)
+                    FLAGS.batch_size, FLAGS.max_steps, train_mode=False, convex_hull=True)
                 # Test
                 feed_dict = self.create_feed_dict(
                     encoder_input_data, decoder_input_data, targets_data)
@@ -183,30 +183,34 @@ class PointerNetwork(object):
 
                 if (i+1) % 100 == 0:
                     print("Test: ", test_loss_value)
-
-                predictions_order = np.concatenate([np.expand_dims(prediction , 0) for prediction in predictions])
-                predictions_order = np.argmax(predictions_order, 2).transpose(1, 0)[:,0:FLAGS.max_steps]
-                    
-                input_order = np.concatenate([np.expand_dims(encoder_input_data_ , 0) for encoder_input_data_ in encoder_input_data])
-                input_order = np.argsort(input_order, 0).squeeze().transpose(1, 0)+1
-                
-                correct_order += np.sum(np.all(predictions_order == input_order,
-                                    axis=1))
-                all_order += FLAGS.batch_size
-
-                if (i+1) % 100 == 0:
-                    print('Correct order / All order: %f' % (correct_order / all_order))
-                    correct_order = 0
-                    all_order = 0
-                    
                     # print(encoder_input_data, decoder_input_data, targets_data)
-                    # print(inps_)
+
+                # predictions_order = np.concatenate([np.expand_dims(prediction , 0) for prediction in predictions])
+                # predictions_order = np.argmax(predictions_order, 2).transpose(1, 0)[:,0:FLAGS.max_steps]
+                    
+                # input_order = np.concatenate([np.expand_dims(encoder_input_data_ , 0) for encoder_input_data_ in encoder_input_data])
+                # # hull = ConvexHull(input_order)
+                # # input_order = np.concatenate(hull.vertices+1,np.zeros(len(hull.vertices)))
+                
+                # # correct_order += np.sum(np.all(predictions_order == input_order,
+                # #                     axis=1))
+                # # all_order += FLAGS.batch_size
+
+                # if (i+1) % 100 == 0:
+                #     print('Correct order / All order: %f' % (correct_order / all_order))
+                #     correct_order = 0
+                #     all_order = 0
+                #     print(encoder_input_data)
+                #     print("----")
+                #     print(input_order)
+                #     # print(encoder_input_data, decoder_input_data, targets_data)
+                #     # print(inps_)
 
 
 
 if __name__ == "__main__":
     # TODO: replace other with params
-    pointer_network = PointerNetwork(FLAGS.max_steps, 1, FLAGS.rnn_size,
+    pointer_network = PointerNetwork(FLAGS.max_steps, 2, FLAGS.rnn_size,
                                      1, 5, FLAGS.batch_size, 1e-2, 0.95)
     dataset = DataGenerator()
     pointer_network.step()
