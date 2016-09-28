@@ -114,14 +114,16 @@ class PointerNetwork(object):
 
         loss = 0.0
         for output, target, weight in zip(self.outputs, self.decoder_targets, self.target_weights):
-            loss += tf.nn.softmax_cross_entropy_with_logits(output, target) * weight
+            # loss += tf.nn.softmax_cross_entropy_with_logits(output, target) * weight
+            loss += tf.nn.l2_loss(tf.sub(output, target))*weight/self.batch_size
 
         loss = tf.reduce_mean(loss)
         tf.scalar_summary('train_loss',loss)
 
         test_loss = 0.0
         for output, target, weight in zip(self.predictions, self.decoder_targets, self.target_weights):
-            test_loss += tf.nn.softmax_cross_entropy_with_logits(output, target) * weight
+            # test_loss += tf.nn.softmax_cross_entropy_with_logits(output, target) * weight
+            test_loss += tf.nn.l2_loss(tf.sub(output, target))*weight/self.batch_size
 
         test_loss = tf.reduce_mean(test_loss)
         tf.scalar_summary('test_loss', test_loss)
@@ -167,12 +169,12 @@ class PointerNetwork(object):
                 train_loss_value += d_x/100
 
                 if (i+1) % 100 == 0:
-                    print('Step:', i+1)
+                    print('Step:', i+1, 'Learning rate:', sess.run(self.learning_rate))
                     print("Train: ", train_loss_value)
                     previous_losses.append(train_loss_value)
                     # reduce the learning rate if test_loss doesn't decline
                     if len(previous_losses)>4 and train_loss_value> max(previous_losses[-5:]):
-                        sess.run(model.learning_rate_decay_op)
+                        sess.run(self.learning_rate_decay_op)
                     train_loss_value = 0
 
                 encoder_input_data, decoder_input_data, targets_data = dataset.next_batch(
@@ -191,7 +193,9 @@ class PointerNetwork(object):
 
                 if (i+1) % 100 == 0:
                     print("Test: ", test_loss_value)
-                    print("predictions: ", predictions[0])
+                    print("Example prediction: ", predictions[0])
+                    print("True value: ", encoder_input_data[0])
+                    test_loss_value = 0
                     # print(encoder_input_data, decoder_input_data, targets_data)
 
                 # predictions_order = np.concatenate([np.expand_dims(prediction , 0) for prediction in predictions])
