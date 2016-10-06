@@ -12,19 +12,23 @@ import tensorflow as tf
 
 from dataset import DataGenerator
 from pointer import pointer_decoder
-from scipy.spatial import ConvexHull
 
 flags = tf.app.flags
-FLAGS = flags.FLAGS
 flags.DEFINE_integer('batch_size', 128, 'Batch size.  ')
-flags.DEFINE_integer('max_steps', 10, 'Number of numbers to sort, or number of points to compute the convex hull of.')
-flags.DEFINE_integer('rnn_size', 512, 'RNN size.  ')
-
+flags.DEFINE_integer('max_len', 50, 'Size of problem.')
+flags.DEFINE_integer('rnn_size', 512, 'Number of RNN cells in each layer')
+flags.DEFINE_integer('num_layers', 1, 'Number of layers in the network.')
+flags.DEFINE_string('problem_type', 'convex_hull', 'What kind of problem to train on: "convex_hull", or "sort".')
+flags.DEFINE_integer('steps_per_checkpoint', 100, 'How many training steps to do per checkpoint.')
+flags.DEFINE_float("max_gradient_norm", 2.0, "Clip gradients to this norm.")
+flags.DEFINE_float('learning_rate', 1.0, "Learning rate.")
+flags.DEFINE_float('learning_rate_decay_factor', 0.9, "Learning rate decays by this much whenever training stalls")
+FLAGS = flags.FLAGS
 
 class PointerNetwork(object):
     
     def __init__(self, max_len, input_size, size, num_layers, max_gradient_norm, batch_size, learning_rate, learning_rate_decay_factor):
-        """Create the network. A simplified network that handles only sorting.
+        """Create the network.
         
         Args:
             max_len: maximum length of the model.
@@ -38,6 +42,7 @@ class PointerNetwork(object):
             learning_rate: learning rate to start with.
             learning_rate_decay_factor: decay learning rate by this much when needed.
         """
+        self.max_len = max_len
         self.batch_size = batch_size
         self.learning_rate = tf.Variable(float(learning_rate), trainable=False)
         self.learning_rate_decay_op = self.learning_rate.assign(
@@ -45,9 +50,9 @@ class PointerNetwork(object):
         self.global_step = tf.Variable(0, trainable=False)
 
         
-        cell = tf.nn.rnn_cell.GRUCell(size)
+        cell = tf.nn.rnn_cell.LSTMCell(size)
         if num_layers > 1:
-            cell = tf.nn.rnn_cell.MultiRNNCell([single_cell] * num_layers)
+            cell = tf.nn.rnn_cell.MultiRNNCell([cell] * num_layers)
             
         self.encoder_inputs = []
         self.decoder_inputs = []
@@ -64,15 +69,12 @@ class PointerNetwork(object):
                 tf.float32, [batch_size, max_len + 1], name="DecoderTarget%d" % i))  # one hot
             self.target_weights.append(tf.placeholder(
                 tf.float32, [batch_size, 1], name="TargetWeight%d" % i))
-
-            
-        # Encoder
         
         # Need for attention
         encoder_outputs, final_state = tf.nn.rnn(cell, self.encoder_inputs, dtype = tf.float32)
         
         # Need a dummy output to point on it. End of decoding.
-        encoder_outputs = [tf.zeros([FLAGS.batch_size, FLAGS.rnn_size])] + encoder_outputs
+        encoder_outputs = [tf.zeros([batch_size, size])] + encoder_outputs
 
         # First calculate a concatenation of encoder outputs to put attention on.
         top_states = [tf.reshape(e, [-1, 1, cell.output_size])
@@ -81,7 +83,7 @@ class PointerNetwork(object):
 
         with tf.variable_scope("decoder"):
             outputs, states, _ = pointer_decoder(
-                self.decoder_inputs, final_state, attention_states, cell)
+                self.decoder_inputs, final_state, attention_states, cell, feed_prev=False)
 
         with tf.variable_scope("decoder", reuse=True):
             predictions, _, inps = pointer_decoder(
@@ -91,7 +93,6 @@ class PointerNetwork(object):
 
         self.outputs = outputs
         self.inps = inps
-        # move code below to a separate function as in TF examples
         
             
     def create_feed_dict(self, encoder_input_data, decoder_input_data, decoder_target_data):
@@ -114,55 +115,57 @@ class PointerNetwork(object):
 
         loss = 0.0
         for output, target, weight in zip(self.outputs, self.decoder_targets, self.target_weights):
-            # loss += tf.nn.softmax_cross_entropy_with_logits(output, target) * weight
-            loss += tf.nn.l2_loss(tf.sub(output, target))*weight/self.batch_size
+            loss += tf.nn.softmax_cross_entropy_with_logits(output, target) * weight
 
         loss = tf.reduce_mean(loss)
-        tf.scalar_summary('train_loss',loss)
+        tf.scalar_summary('loss',loss)
 
         test_loss = 0.0
         for output, target, weight in zip(self.predictions, self.decoder_targets, self.target_weights):
-            # test_loss += tf.nn.softmax_cross_entropy_with_logits(output, target) * weight
-            test_loss += tf.nn.l2_loss(tf.sub(output, target))*weight/self.batch_size
-
+            test_loss += tf.nn.softmax_cross_entropy_with_logits(output, target) * weight
+        
         test_loss = tf.reduce_mean(test_loss)
         tf.scalar_summary('test_loss', test_loss)
+
         optimizer = tf.train.AdamOptimizer()
         train_op = optimizer.minimize(loss)
+
+        tf.scalar_summary('learning_rate', self.learning_rate)
         
         train_loss_value = 0.0
         test_loss_value = 0.0
         
         correct_order = 0.0
-        all_order = 1.0
+        all_order = 0.0
 
         sess = tf.Session()
         with sess.as_default():
             previous_losses = []
             merged = tf.merge_all_summaries()
-            writer = tf.train.SummaryWriter("./tmp/pointer_logs/multi_hot", sess.graph)
+            train_writer = tf.train.SummaryWriter("./tmp/pointer_logs/"+ FLAGS.problem_type + "/new_acc/train", sess.graph)
+            test_writer = tf.train.SummaryWriter("./tmp/pointer_logs/"+ FLAGS.problem_type +"/new_acc/test", sess.graph)
             init = tf.initialize_all_variables()
             sess.run(init)
-            for i in range(int(math.ceil(1000000/FLAGS.batch_size))):
+            for i in range(int(math.ceil(1000000/self.batch_size))):
                 encoder_input_data, decoder_input_data, targets_data = dataset.next_batch(
-                    FLAGS.batch_size, FLAGS.max_steps, convex_hull=True)
+                    self.batch_size, self.max_len, convex_hull=True)
                 # Train
                 feed_dict = self.create_feed_dict(
                     encoder_input_data, decoder_input_data, targets_data)
                 if (i+1)%10 == 0:
                     if (i+1)%100 == 0:
-                    #record run metadata
+                        #record run metadata
                         run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
                         run_metadata = tf.RunMetadata()
                         summary, d_x, l = sess.run([merged, loss, train_op], feed_dict=feed_dict, 
                                 options=run_options,
                                 run_metadata=run_metadata)
-                        writer.add_run_metadata(run_metadata, 'step%d'%(i+1))
-                        writer.add_summary(summary, (i+1))
+                        train_writer.add_run_metadata(run_metadata, 'step%d'%(i+1))
+                        train_writer.add_summary(summary, (i+1))
 
                     else:
                         summary, d_x, l = sess.run([merged, loss, train_op], feed_dict=feed_dict)
-                        writer.add_summary(summary, (i+1))
+                        train_writer.add_summary(summary, (i+1))
                 else:
                     d_x, l = sess.run([loss, train_op], feed_dict = feed_dict)
 
@@ -172,59 +175,63 @@ class PointerNetwork(object):
                     print('Step:', i+1, 'Learning rate:', sess.run(self.learning_rate))
                     print("Train: ", train_loss_value)
                     previous_losses.append(train_loss_value)
-                    # reduce the learning rate if test_loss doesn't decline
-                    if len(previous_losses)>4 and train_loss_value> max(previous_losses[-5:]):
+                    # reduce the learning rate if train_loss doesn't decline
+                    if len(previous_losses)>2 and train_loss_value> max(previous_losses[-3:]):
                         sess.run(self.learning_rate_decay_op)
                     train_loss_value = 0
 
                 encoder_input_data, decoder_input_data, targets_data = dataset.next_batch(
-                    FLAGS.batch_size, FLAGS.max_steps, train_mode=False, convex_hull=True)
+                    self.batch_size, self.max_len, train_mode=False, convex_hull=True)
                 # Test
                 feed_dict = self.create_feed_dict(
                     encoder_input_data, decoder_input_data, targets_data)
                 inps_ = sess.run(self.inps, feed_dict=feed_dict)
-
                 predictions = sess.run(self.predictions, feed_dict=feed_dict)
                 
                 
-                    
-                test_loss_ = sess.run(test_loss, feed_dict=feed_dict)
+                
+                if (i+1)%10 == 0:
+                    summary, test_loss_ = sess.run([merged, test_loss], feed_dict=feed_dict)
+                    test_writer.add_summary(summary, (i+1))
+                else:
+                    test_loss_ = sess.run(test_loss, feed_dict=feed_dict)
                 test_loss_value += test_loss_/100
+                
+                if (i+1)%10 ==0:
+                    predictions_order = np.concatenate([np.expand_dims(prediction , 0) for prediction in predictions])
+                    predictions_order = np.argmax(predictions_order, 2).transpose(1, 0)[:,0:self.max_len]
+                    
+                    targets_order = np.concatenate([np.expand_dims(target, 0) for target in targets_data])
+                    targets_order = np.argmax(targets_order,2).transpose(1,0)[:,0:self.max_len]
+                    for j in xrange(self.batch_size):
+                        target_order = targets_order[j]
+                        num_vertices = np.where(target_order==0)[0][0]
+                        pred_order = predictions_order[j]
+                        pred_sequence = predicted_order[0:num_vertices]
+                        pred_order[0:num_vertices] = np.roll(pred_sequence, -list(pred_sequence).index(np.min(pred_sequence)))
+                        correct_order += (pred_order == target_order)
+                        all_order += 1
+
 
                 if (i+1) % 100 == 0:
                     print("Test: ", test_loss_value)
-                    print("Example prediction: ", predictions[0])
-                    print("True value: ", encoder_input_data[0])
                     test_loss_value = 0
-                    # print(encoder_input_data, decoder_input_data, targets_data)
-
-                # predictions_order = np.concatenate([np.expand_dims(prediction , 0) for prediction in predictions])
-                # predictions_order = np.argmax(predictions_order, 2).transpose(1, 0)[:,0:FLAGS.max_steps]
-                    
-                # input_order = np.concatenate([np.expand_dims(encoder_input_data_ , 0) for encoder_input_data_ in encoder_input_data])
-                # input_order = np.argsort(input_order, 0).squeeze().transpose(1, 0)+1
-                # # hull = ConvexHull(input_order)
-                # # input_order = np.concatenate(hull.vertices+1,np.zeros(len(hull.vertices)))
-                
-                # correct_order += np.sum(np.all(predictions_order == input_order, axis=1))
-                # all_order += FLAGS.batch_size
-
-                # if (i+1) % 100 == 0:
-                #     print('Correct order / All order: %f' % (correct_order / all_order))
-                #     correct_order = 0
-                #     all_order = 0
-                #     # print(encoder_input_data)
-                #     # print("----")
-                #     # print(input_order)
-                #     # print(encoder_input_data, decoder_input_data, targets_data)
-                #     # print(inps_)
+                    print('Correct order / All order: %f' % (correct_order / all_order))
+                    correct_order = 0
+                    all_order = 0
+                    print("----")
+                    # # print(input_order[0])
+                    # print(np.array(encoder_input_data)[:,0])
+                    # print(np.array(targets_data)[:,0])
+                    # print(np.array(predictions)[:,0])
+                    # print(np.array(inps_)[:,0])
 
 
 
 if __name__ == "__main__":
-    # TODO: replace other with params
-    pointer_network = PointerNetwork(FLAGS.max_steps, 2, FLAGS.rnn_size,
-                                     1, 5, FLAGS.batch_size, 0.5, 0.9)
+    pointer_network = PointerNetwork(FLAGS.max_len, 2 - (FLAGS.problem_type == 'sort'), FLAGS.rnn_size,
+                                     FLAGS.num_layers, FLAGS.max_gradient_norm, FLAGS.batch_size, FLAGS.learning_rate, 
+                                     FLAGS.learning_rate_decay_factor)
     dataset = DataGenerator()
     pointer_network.step()
 

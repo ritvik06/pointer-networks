@@ -33,18 +33,24 @@ class DataGenerator(object):
             for b in range(batch_size):
                 sequence = np.random.rand(N, 2)
                 hull = ConvexHull(sequence)
+                v = hull.vertices
+                v = np.roll(v, -list(v).index(np.min(v))) #start from the smallest vertex
                 for i in range(N):
                     reader_input_batch[i][b] = sequence[i]
 
-                for i in range(len(hull.vertices)):
+                for i in range(len(v)):
                     if train_mode:
-                        decoder_input_batch[i + 1][b] = sequence[hull.vertices[i]]
+                        decoder_input_batch[i + 1][b] = sequence[v[i]]
                     else:
                         decoder_input_batch[i + 1][b] = sequence[i]
-                    writer_outputs_batch[i][b, hull.vertices[i]] = 1.0
+                    writer_outputs_batch[i][b, v[i]+1] = 1.0
 
                 #Write the stop symbol    
-                writer_outputs_batch[len(hull.vertices)][b, 0] = 1.0
+                for i in xrange(len(v), N):
+                    writer_outputs_batch[i][b, 0] = 1.0
+                    if not train_mode:
+                        decoder_input_batch[i + 1][b] = sequence[i]
+                writer_outputs_batch[N][b, 0] = 1.0
         else:
             
             for _ in range(N):
@@ -73,7 +79,7 @@ class DataGenerator(object):
         return reader_input_batch, decoder_input_batch, writer_outputs_batch
 if __name__ == "__main__":
     dataset = DataGenerator()
-    r, d, w = dataset.next_batch(1, 10, convex_hull=True)
+    r, d, w = dataset.next_batch(1, 5, train_mode=False, convex_hull=True)
     print("Reader: ", r)
     print("Decoder: ", d)
     print("Writer: ", w)

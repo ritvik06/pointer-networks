@@ -46,7 +46,7 @@ def multi_hot(input, batch_size,  threshold=0.3):
                 tf.one_hot(tf.argmax(x, dimension = 0), batch_size)
                 )
         , output)
-    #output = tf.one_hot(tf.argmax(input, dimension=0),attention_vec_size)
+    #output = tf.one_hot(tf.argmax(input, dimension=0),batch_size)
     return output
 
 def pointer_decoder(decoder_inputs, initial_state, attention_states, cell,
@@ -80,7 +80,7 @@ def pointer_decoder(decoder_inputs, initial_state, attention_states, cell,
         raise ValueError("Shape[1] and [2] of attention_states must be known: %s"
                          % attention_states.get_shape())
 
-    with vs.variable_scope(scope or "point_decoder"):
+    with vs.variable_scope(scope or "point_decoder") as scope:
         batch_size = array_ops.shape(decoder_inputs[0])[0]  # Needed for reshaping.
         input_size = decoder_inputs[0].get_shape()[1].value
         attn_length = attention_states.get_shape()[1].value
@@ -105,7 +105,9 @@ def pointer_decoder(decoder_inputs, initial_state, attention_states, cell,
                 # Attention mask is a softmax of v^T * tanh(...).
                 s = math_ops.reduce_sum(
                     v * math_ops.tanh(hidden_features + y), [2, 3])
-                return s
+                a = nn_ops.softmax(s)
+                # a = tf.one_hot(tf.argmax(s, dimension=1),depth=attn_length)
+                return a
 
         outputs = []
         prev = None
@@ -123,7 +125,7 @@ def pointer_decoder(decoder_inputs, initial_state, attention_states, cell,
                 inp = tf.pack(decoder_inputs)
                 inp = tf.transpose(inp, perm=[1, 0, 2])
                 inp = tf.reshape(inp, [-1, attn_length, input_size])
-                inp = tf.reduce_sum(inp * tf.reshape(multi_hot(output, batch_size), [-1, attn_length, 1]), 1)
+                inp = tf.reduce_sum(inp * tf.reshape(output, [-1, attn_length, 1]), 1)
                 inp = tf.stop_gradient(inp)
                 inps.append(inp)
 
@@ -136,7 +138,5 @@ def pointer_decoder(decoder_inputs, initial_state, attention_states, cell,
             states.append(new_state)
             # Run the attention mechanism.
             output = attention(new_state)
-
             outputs.append(output)
-
     return outputs, states, inps
