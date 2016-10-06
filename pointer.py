@@ -38,19 +38,21 @@ from tensorflow.python.ops import rnn_cell
 from tensorflow.python.ops import sparse_ops
 from tensorflow.python.ops import variable_scope as vs
 
-def multi_hot(input, batch_size,  threshold=0.3):
-    output = tf.transpose(input)
+def one_hot(inp, attn_length):
+    output = tf.one_hot(tf.argmax(inp, dimension=1),attn_length)
+    return output 
+
+def multi_hot(inp, attn_length,  threshold=0.3):
     output = tf.map_fn(
             lambda x: tf.maximum(
                 tf.select(tf.greater_equal(x,tf.fill(tf.shape(x),threshold)), tf.ones_like(x) , tf.zeros_like(x)),
-                tf.one_hot(tf.argmax(x, dimension = 0), batch_size)
+                tf.one_hot(tf.argmax(x, dimension = 0), attn_length)
                 )
-        , output)
-    #output = tf.one_hot(tf.argmax(input, dimension=0),batch_size)
+        , inp)
     return output
 
 def pointer_decoder(decoder_inputs, initial_state, attention_states, cell,
-                    feed_prev=True, dtype=dtypes.float32, scope=None):
+                    feed_prev=True, dtype=dtypes.float32, scope=None, pointer_type="multi_hot"):
     """RNN decoder with pointer net for the sequence-to-sequence model.
     Args:
       decoder_inputs: a list of 2D Tensors [batch_size x cell.input_size].
@@ -125,7 +127,12 @@ def pointer_decoder(decoder_inputs, initial_state, attention_states, cell,
                 inp = tf.pack(decoder_inputs)
                 inp = tf.transpose(inp, perm=[1, 0, 2])
                 inp = tf.reshape(inp, [-1, attn_length, input_size])
-                inp = tf.reduce_sum(inp * tf.reshape(output, [-1, attn_length, 1]), 1)
+                if pointer_type == "multi_hot":
+                    inp = tf.reduce_sum(inp * tf.reshape(multi_hot(output, attn_length), [-1, attn_length, 1]), 1)
+                elif pointer_type == "one_hot":
+                    inp = tf.reduce_sum(inp * tf.reshape(one_hot(output, attn_length), [-1, attn_length, 1]), 1)
+                else:
+                    inp = tf.reduce_sum(inp * tf.reshape(output, [-1, attn_length, 1]), 1)
                 inp = tf.stop_gradient(inp)
                 inps.append(inp)
 

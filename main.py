@@ -142,8 +142,8 @@ class PointerNetwork(object):
         with sess.as_default():
             previous_losses = []
             merged = tf.merge_all_summaries()
-            train_writer = tf.train.SummaryWriter("./tmp/pointer_logs/"+ FLAGS.problem_type + "/new_acc/train", sess.graph)
-            test_writer = tf.train.SummaryWriter("./tmp/pointer_logs/"+ FLAGS.problem_type +"/new_acc/test", sess.graph)
+            train_writer = tf.train.SummaryWriter("./tmp/pointer_logs/"+ FLAGS.problem_type + "/multihot/train", sess.graph)
+            test_writer = tf.train.SummaryWriter("./tmp/pointer_logs/"+ FLAGS.problem_type +"/multihot/test", sess.graph)
             init = tf.initialize_all_variables()
             sess.run(init)
             for i in range(int(math.ceil(1000000/self.batch_size))):
@@ -196,26 +196,31 @@ class PointerNetwork(object):
                 else:
                     test_loss_ = sess.run(test_loss, feed_dict=feed_dict)
                 test_loss_value += test_loss_/100
-                
-                if (i+1)%10 ==0:
-                    predictions_order = np.concatenate([np.expand_dims(prediction , 0) for prediction in predictions])
-                    predictions_order = np.argmax(predictions_order, 2).transpose(1, 0)[:,0:self.max_len]
-                    
-                    targets_order = np.concatenate([np.expand_dims(target, 0) for target in targets_data])
-                    targets_order = np.argmax(targets_order,2).transpose(1,0)[:,0:self.max_len]
-                    for j in xrange(self.batch_size):
-                        target_order = targets_order[j]
-                        num_vertices = np.where(target_order==0)[0][0]
-                        pred_order = predictions_order[j]
-                        pred_sequence = predicted_order[0:num_vertices]
-                        pred_order[0:num_vertices] = np.roll(pred_sequence, -list(pred_sequence).index(np.min(pred_sequence)))
-                        correct_order += (pred_order == target_order)
-                        all_order += 1
-
 
                 if (i+1) % 100 == 0:
                     print("Test: ", test_loss_value)
                     test_loss_value = 0
+
+                predictions_order = np.concatenate([np.expand_dims(prediction , 0) for prediction in predictions])
+                predictions_order = np.argmax(predictions_order, 2).transpose(1, 0)[:,0:self.max_len]
+                
+                targets_order = np.concatenate([np.expand_dims(target, 0) for target in targets_data])
+                targets_order = np.argmax(targets_order,2).transpose(1,0)[:,0:self.max_len]
+
+                # for j in xrange(self.batch_size):
+                #         target_order = targets_order[j]
+                #         num_vertices = np.where(target_order==0)[0][0]
+                #         pred_order = predictions_order[j]
+                #         pred_sequence = predicted_order[0:num_vertices]
+                #         pred_order[0:num_vertices] = np.roll(pred_sequence, -list(pred_sequence).index(np.min(pred_sequence)))
+                #         correct_order += (pred_order == target_order)
+                
+                correct_order += np.sum(np.all(predictions_order == targets_order, axis=1))
+                all_order += self.batch_size
+
+                if (i+1) % 100 == 0:
+                    
+                    
                     print('Correct order / All order: %f' % (correct_order / all_order))
                     correct_order = 0
                     all_order = 0
