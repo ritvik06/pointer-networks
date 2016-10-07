@@ -23,12 +23,11 @@ flags.DEFINE_string('pointer_type', 'one_hot', 'What kind of pointer to use: "mu
 flags.DEFINE_integer('steps_per_checkpoint', 100, 'How many training steps to do per checkpoint.')
 flags.DEFINE_float("max_gradient_norm", 2.0, "Clip gradients to this norm.")
 flags.DEFINE_float('learning_rate', 1.0, "Learning rate.")
-flags.DEFINE_float('learning_rate_decay_factor', 0.9, "Learning rate decays by this much whenever training stalls")
 FLAGS = flags.FLAGS
 
 class PointerNetwork(object):
     
-    def __init__(self, max_len, input_size, size, num_layers, max_gradient_norm, batch_size, learning_rate, learning_rate_decay_factor):
+    def __init__(self, max_len, input_size, size, num_layers, max_gradient_norm, batch_size, learning_rate):
         """Create the network.
         
         Args:
@@ -41,13 +40,11 @@ class PointerNetwork(object):
                 the model construction is independent of batch_size, so it can be
                 changed after initialization if this is convenient, e.g., for decoding.
             learning_rate: learning rate to start with.
-            learning_rate_decay_factor: decay learning rate by this much when needed.
         """
         self.max_len = max_len
         self.batch_size = batch_size
-        self.learning_rate = tf.Variable(float(learning_rate), trainable=False)
-        self.learning_rate_decay_op = self.learning_rate.assign(
-            self.learning_rate * learning_rate_decay_factor)
+        self.learning_rate = learning_rate
+        self.max_gradient_norm = max_gradient_norm
         self.global_step = tf.Variable(0, trainable=False)
 
         
@@ -115,23 +112,22 @@ class PointerNetwork(object):
     def step(self):
 
         loss = 0.0
-        for output, target, weight in zip(self.outputs, self.decoder_targets, self.target_weights):
+        # for output, target, weight in zip(self.outputs, self.decoder_targets, self.target_weights):
+        for output, target, weight in zip(self.predictions, self.decoder_targets, self.target_weights):
             loss += tf.nn.softmax_cross_entropy_with_logits(output, target) * weight
 
         loss = tf.reduce_mean(loss)
-        tf.scalar_summary('loss',loss)
 
-        test_loss = 0.0
-        for output, target, weight in zip(self.predictions, self.decoder_targets, self.target_weights):
-            test_loss += tf.nn.softmax_cross_entropy_with_logits(output, target) * weight
+        # test_loss = 0.0
+        # for output, target, weight in zip(self.predictions, self.decoder_targets, self.target_weights):
+        #     test_loss += tf.nn.softmax_cross_entropy_with_logits(output, target) * weight
         
-        test_loss = tf.reduce_mean(test_loss)
-        tf.scalar_summary('test_loss', test_loss)
+        # test_loss = tf.reduce_mean(test_loss)
+        # tf.scalar_summary('test_loss', test_loss)
 
-        optimizer = tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate)
-        train_op = optimizer.minimize(loss)
-
-        tf.scalar_summary('learning_rate', self.learning_rate)
+        train_op = tf.contrib.layers.optimize_loss(
+            loss, self.global_step, learning_rate=self.learning_rate,
+            optimizer="SGD", clip_gradients=self.max_gradient_norm, name="train_op")
         
         train_loss_value = 0.0
         test_loss_value = 0.0
@@ -154,7 +150,7 @@ class PointerNetwork(object):
                 feed_dict = self.create_feed_dict(
                     encoder_input_data, decoder_input_data, targets_data)
                 if (i+1)%10 == 0:
-                    if (i+1)%100 == 0:
+                    if (i+1)%FLAGS.steps_per_checkpoint == 0:
                         #record run metadata
                         run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
                         run_metadata = tf.RunMetadata()
@@ -170,15 +166,11 @@ class PointerNetwork(object):
                 else:
                     d_x, l = sess.run([loss, train_op], feed_dict = feed_dict)
 
-                train_loss_value += d_x/100
+                train_loss_value += d_x/FLAGS.steps_per_checkpoint
 
-                if (i+1) % 100 == 0:
-                    print('Step:', i+1, 'Learning rate:', sess.run(self.learning_rate))
+                if (i+1) % FLAGS.steps_per_checkpoint == 0:
+                    print('Step:', i+1, 'Learning rate:', self.learning_rate)
                     print("Train: ", train_loss_value)
-                    previous_losses.append(train_loss_value)
-                    # reduce the learning rate if train_loss doesn't decline
-                    if len(previous_losses)>2 and train_loss_value> max(previous_losses[-3:]):
-                        sess.run(self.learning_rate_decay_op)
                     train_loss_value = 0
 
                 encoder_input_data, decoder_input_data, targets_data = dataset.next_batch(
@@ -192,13 +184,13 @@ class PointerNetwork(object):
                 
                 
                 if (i+1)%10 == 0:
-                    summary, test_loss_ = sess.run([merged, test_loss], feed_dict=feed_dict)
+                    summary, test_loss_ = sess.run([merged, loss], feed_dict=feed_dict)
                     test_writer.add_summary(summary, (i+1))
                 else:
-                    test_loss_ = sess.run(test_loss, feed_dict=feed_dict)
-                test_loss_value += test_loss_/100
+                    test_loss_ = sess.run(loss, feed_dict=feed_dict)
+                test_loss_value += test_loss_/FLAGS.steps_per_checkpoint
 
-                if (i+1) % 100 == 0:
+                if (i+1) % FLAGS.steps_per_checkpoint == 0:
                     print("Test: ", test_loss_value)
                     test_loss_value = 0
 
@@ -231,8 +223,7 @@ class PointerNetwork(object):
 
 if __name__ == "__main__":
     pointer_network = PointerNetwork(FLAGS.max_len, 2 - (FLAGS.problem_type == 'sort'), FLAGS.rnn_size,
-                                     FLAGS.num_layers, FLAGS.max_gradient_norm, FLAGS.batch_size, FLAGS.learning_rate, 
-                                     FLAGS.learning_rate_decay_factor)
+                                     FLAGS.num_layers, FLAGS.max_gradient_norm, FLAGS.batch_size, FLAGS.learning_rate)
     dataset = DataGenerator()
     pointer_network.step()
 
