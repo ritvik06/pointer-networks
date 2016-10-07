@@ -43,16 +43,13 @@ def one_hot(inp, attn_length):
     return output 
 
 def multi_hot(inp, attn_length,  threshold=0.3):
-    output = tf.map_fn(
-            lambda x: tf.maximum(
-                tf.select(tf.greater_equal(x,tf.fill(tf.shape(x),threshold)), tf.ones_like(x) , tf.zeros_like(x)),
-                tf.one_hot(tf.argmax(x, dimension = 0), attn_length)
-                )
-        , inp)
+    output = tf.maximum(
+        tf.select(tf.greater_equal(inp,tf.fill(tf.shape(inp),threshold)), tf.ones_like(inp) , tf.zeros_like(inp)),
+        tf.one_hot(tf.argmax(inp, dimension=1),attn_length))
     return output
 
 def pointer_decoder(decoder_inputs, initial_state, attention_states, cell,
-                    feed_prev=True, dtype=dtypes.float32, scope=None, pointer_type="multi_hot"):
+                    feed_prev=True, dtype=dtypes.float32, scope=None, pointer_type="one_hot"):
     """RNN decoder with pointer net for the sequence-to-sequence model.
     Args:
       decoder_inputs: a list of 2D Tensors [batch_size x cell.input_size].
@@ -105,10 +102,11 @@ def pointer_decoder(decoder_inputs, initial_state, attention_states, cell,
                 y = rnn_cell._linear(query, attention_vec_size, True)
                 y = array_ops.reshape(y, [-1, 1, 1, attention_vec_size])
                 # Attention mask is a softmax of v^T * tanh(...).
-                s = math_ops.reduce_sum(
+                a = math_ops.reduce_sum(
                     v * math_ops.tanh(hidden_features + y), [2, 3])
-                a = nn_ops.softmax(s)
-                # a = tf.one_hot(tf.argmax(s, dimension=1),depth=attn_length)
+                # For multi_hot, the softmax is computed after selecting the input
+                if not pointer_type == "multi_hot":
+                    a = nn_ops.softmax(a)
                 return a
 
         outputs = []
@@ -131,8 +129,10 @@ def pointer_decoder(decoder_inputs, initial_state, attention_states, cell,
                     inp = tf.reduce_sum(inp * tf.reshape(multi_hot(output, attn_length), [-1, attn_length, 1]), 1)
                 elif pointer_type == "one_hot":
                     inp = tf.reduce_sum(inp * tf.reshape(one_hot(output, attn_length), [-1, attn_length, 1]), 1)
-                else:
+                elif pointer_type == "softmax":
                     inp = tf.reduce_sum(inp * tf.reshape(output, [-1, attn_length, 1]), 1)
+                else:
+                    raise ValueError('Pointer type must be one of "multi_hot", "one_hot", and "softmax')
                 inp = tf.stop_gradient(inp)
                 inps.append(inp)
 
@@ -146,4 +146,10 @@ def pointer_decoder(decoder_inputs, initial_state, attention_states, cell,
             # Run the attention mechanism.
             output = attention(new_state)
             outputs.append(output)
+        if pointer_type == "multi_hot":
+            outputs_ = []
+            for output in outputs:
+                output_ = nn_ops.softmax(output)
+                outputs_.append(output_)
+            outputs = outputs_
     return outputs, states, inps

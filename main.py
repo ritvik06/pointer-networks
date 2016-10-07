@@ -19,6 +19,7 @@ flags.DEFINE_integer('max_len', 50, 'Size of problem.')
 flags.DEFINE_integer('rnn_size', 512, 'Number of RNN cells in each layer')
 flags.DEFINE_integer('num_layers', 1, 'Number of layers in the network.')
 flags.DEFINE_string('problem_type', 'convex_hull', 'What kind of problem to train on: "convex_hull", or "sort".')
+flags.DEFINE_string('pointer_type', 'one_hot', 'What kind of pointer to use: "multi_hot", "one_hot", or "soft_max"')
 flags.DEFINE_integer('steps_per_checkpoint', 100, 'How many training steps to do per checkpoint.')
 flags.DEFINE_float("max_gradient_norm", 2.0, "Clip gradients to this norm.")
 flags.DEFINE_float('learning_rate', 1.0, "Learning rate.")
@@ -50,7 +51,7 @@ class PointerNetwork(object):
         self.global_step = tf.Variable(0, trainable=False)
 
         
-        cell = tf.nn.rnn_cell.LSTMCell(size)
+        cell = tf.nn.rnn_cell.LSTMCell(num_units=size, initializer=tf.contrib.layers.xavier_initializer())
         if num_layers > 1:
             cell = tf.nn.rnn_cell.MultiRNNCell([cell] * num_layers)
             
@@ -83,11 +84,11 @@ class PointerNetwork(object):
 
         with tf.variable_scope("decoder"):
             outputs, states, _ = pointer_decoder(
-                self.decoder_inputs, final_state, attention_states, cell, feed_prev=False)
+                self.decoder_inputs, final_state, attention_states, cell, feed_prev=False, pointer_type=FLAGS.pointer_type)
 
         with tf.variable_scope("decoder", reuse=True):
             predictions, _, inps = pointer_decoder(
-                self.decoder_inputs, final_state, attention_states, cell, feed_prev=True)
+                self.decoder_inputs, final_state, attention_states, cell, feed_prev=True, pointer_type=FLAGS.pointer_type)
             
         self.predictions = predictions
 
@@ -127,7 +128,7 @@ class PointerNetwork(object):
         test_loss = tf.reduce_mean(test_loss)
         tf.scalar_summary('test_loss', test_loss)
 
-        optimizer = tf.train.AdamOptimizer()
+        optimizer = tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate)
         train_op = optimizer.minimize(loss)
 
         tf.scalar_summary('learning_rate', self.learning_rate)
@@ -142,13 +143,13 @@ class PointerNetwork(object):
         with sess.as_default():
             previous_losses = []
             merged = tf.merge_all_summaries()
-            train_writer = tf.train.SummaryWriter("./tmp/pointer_logs/"+ FLAGS.problem_type + "/multihot/train", sess.graph)
-            test_writer = tf.train.SummaryWriter("./tmp/pointer_logs/"+ FLAGS.problem_type +"/multihot/test", sess.graph)
+            train_writer = tf.train.SummaryWriter("./tmp/pointer_logs/"+ FLAGS.problem_type +"/" + FLAGS.pointer_type+ "/train", sess.graph)
+            test_writer = tf.train.SummaryWriter("./tmp/pointer_logs/"+ FLAGS.problem_type +"/" + FLAGS.pointer_type + "/test", sess.graph)
             init = tf.initialize_all_variables()
             sess.run(init)
             for i in range(int(math.ceil(1000000/self.batch_size))):
                 encoder_input_data, decoder_input_data, targets_data = dataset.next_batch(
-                    self.batch_size, self.max_len, convex_hull=True)
+                    self.batch_size, self.max_len, convex_hull=(FLAGS.problem_type=="convex_hull"))
                 # Train
                 feed_dict = self.create_feed_dict(
                     encoder_input_data, decoder_input_data, targets_data)
@@ -181,7 +182,7 @@ class PointerNetwork(object):
                     train_loss_value = 0
 
                 encoder_input_data, decoder_input_data, targets_data = dataset.next_batch(
-                    self.batch_size, self.max_len, train_mode=False, convex_hull=True)
+                    self.batch_size, self.max_len, train_mode=False, convex_hull=(FLAGS.problem_type=="convex_hull"))
                 # Test
                 feed_dict = self.create_feed_dict(
                     encoder_input_data, decoder_input_data, targets_data)
@@ -219,17 +220,12 @@ class PointerNetwork(object):
                 all_order += self.batch_size
 
                 if (i+1) % 100 == 0:
-                    
-                    
                     print('Correct order / All order: %f' % (correct_order / all_order))
                     correct_order = 0
                     all_order = 0
                     print("----")
-                    # # print(input_order[0])
-                    # print(np.array(encoder_input_data)[:,0])
-                    # print(np.array(targets_data)[:,0])
-                    # print(np.array(predictions)[:,0])
-                    # print(np.array(inps_)[:,0])
+
+            #evaluate the trained network
 
 
 
