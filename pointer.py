@@ -107,6 +107,7 @@ def pointer_decoder(decoder_inputs, initial_state, attention_states, cell,
                 # Attention mask is a softmax of v^T * tanh(...).
                 a = math_ops.reduce_sum(
                     v * math_ops.tanh(hidden_features + y), [2, 3])
+                a = nn_ops.softmax(a)
                 return a
 
         outputs = []
