@@ -46,6 +46,9 @@ def multi_hot(inp, attn_length,  threshold=0.3):
     output = tf.maximum(
         tf.select(tf.greater_equal(inp,tf.fill(tf.shape(inp),threshold)), tf.ones_like(inp) , tf.zeros_like(inp)),
         tf.one_hot(tf.argmax(inp, dimension=1),attn_length))
+    #normalize output so each row sums to 1
+    normalizer = tf.expand_dims(tf.reduce_sum(output, reduction_indices=1), 1)
+    output = tf.div(output, normalizer)
     return output
 
 def pointer_decoder(decoder_inputs, initial_state, attention_states, cell,
@@ -104,9 +107,6 @@ def pointer_decoder(decoder_inputs, initial_state, attention_states, cell,
                 # Attention mask is a softmax of v^T * tanh(...).
                 a = math_ops.reduce_sum(
                     v * math_ops.tanh(hidden_features + y), [2, 3])
-                # For multi_hot, the softmax is computed after selecting the input
-                if not pointer_type == "multi_hot":
-                    a = nn_ops.softmax(a)
                 return a
 
         outputs = []
@@ -146,10 +146,4 @@ def pointer_decoder(decoder_inputs, initial_state, attention_states, cell,
             # Run the attention mechanism.
             output = attention(new_state)
             outputs.append(output)
-        if pointer_type == "multi_hot":
-            outputs_ = []
-            for output in outputs:
-                output_ = nn_ops.softmax(output)
-                outputs_.append(output_)
-            outputs = outputs_
     return outputs, states, inps
