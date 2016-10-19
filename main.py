@@ -8,6 +8,7 @@ import random
 
 import math
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 
 from dataset import DataGenerator
@@ -23,6 +24,7 @@ flags.DEFINE_string('pointer_type', 'one_hot', 'What kind of pointer to use: "mu
 flags.DEFINE_integer('steps_per_checkpoint', 100, 'How many training steps to do per checkpoint.')
 flags.DEFINE_float("max_gradient_norm", None, "Clip gradients to this norm.")
 flags.DEFINE_float('learning_rate', 0.001, "Learning rate.")
+flags.DEFINE_boolean('to_csv', True, "if true, export the averaged loss and test accuracies")
 FLAGS = flags.FLAGS
 
 class PointerNetwork(object):
@@ -49,7 +51,7 @@ class PointerNetwork(object):
         self.global_step = tf.Variable(0, trainable=False)
 
         
-        cell = tf.nn.rnn_cell.LSTMCell(size, initializer=tf.contrib.layers.xavier_initializer())
+        cell = tf.nn.rnn_cell.LSTMCell(size, initializer=tf.random_uniform_initializer(-0.08, 0.08))
         if num_layers > 1:
             cell = tf.nn.rnn_cell.MultiRNNCell([cell] * num_layers)
             
@@ -151,6 +153,8 @@ class PointerNetwork(object):
         sess = tf.Session()
         with sess.as_default():
             previous_losses = []
+            test_losses = []
+            test_accuracies = []
             merged = tf.merge_all_summaries()
             train_writer = tf.train.SummaryWriter("./pointer_logs/"+ FLAGS.problem_type +"/" + FLAGS.pointer_type+ "/train", sess.graph)
             test_writer = tf.train.SummaryWriter("./pointer_logs/"+ FLAGS.problem_type +"/" + FLAGS.pointer_type + "/test", sess.graph)
@@ -203,11 +207,16 @@ class PointerNetwork(object):
 
                 if (i+1) % FLAGS.steps_per_checkpoint == 0:
                     print("Test Loss: ", test_loss_value)
+                    test_losses.append(test_loss_value)
                     test_loss_value = 0
                     print('Test Accuracy: %.5f' % test_acc_value)
+                    test_accuracies.append(test_acc_value)
                     test_acc_value = 0
                     print("----")
-
+            # export data to csv
+            if FLAGS.to_csv:
+                ouput=pd.DataFrame(data={'train_loss': previous_losses, 'test_loss': test_losses, 'test_accuracy': test_accuracies})
+                output.to_csv('.pointer_logs/'+ FLAGS.problem_type+'_' + FLAGS.pointer_type+'.csv')
 
 
 if __name__ == "__main__":
