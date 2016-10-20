@@ -126,6 +126,7 @@ class PointerNetwork(object):
         for output, target, weight in zip(self.predictions, self.decoder_targets, self.target_weights):
             test_loss += tf.nn.softmax_cross_entropy_with_logits(output, target) * weight
         
+        tf.histogram_summary('predictions', self.predictions)
         test_loss = tf.reduce_mean(test_loss)
         tf.scalar_summary('test_loss', test_loss)
         optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
@@ -142,6 +143,7 @@ class PointerNetwork(object):
         predictions_order = tf.transpose(tf.argmax(predictions_order, 2), perm=[1,0])
         
         targets_order = tf.concat(0,[tf.expand_dims(target, 0) for target in self.decoder_targets])
+
         targets_order = tf.transpose(tf.argmax(targets_order, 2), perm=[1,0])
         
         correct_order += tf.reduce_sum(tf.cast(tf.reduce_all(tf.equal(predictions_order,targets_order), 1), tf.float32))
@@ -162,7 +164,7 @@ class PointerNetwork(object):
             sess.run(init)
             print("Training network...")
             # for i in xrange(int(math.ceil(1000000/self.batch_size))):
-            for i in xrange(100000): 
+            for i in xrange(1000000): 
                 encoder_input_data, decoder_input_data, targets_data = dataset.next_batch(
                     self.batch_size, self.max_len, convex_hull=(FLAGS.problem_type=="convex_hull"))
                 # Train
@@ -214,9 +216,9 @@ class PointerNetwork(object):
                     test_acc_value = 0
                     print("----")
             # export data to csv
-            if FLAGS.to_csv:
-                ouput=pd.DataFrame(data={'train_loss': previous_losses, 'test_loss': test_losses, 'test_accuracy': test_accuracies})
-                output.to_csv('.pointer_logs/'+ FLAGS.problem_type+'_' + FLAGS.pointer_type+'.csv')
+            if (FLAGS.to_csv):
+                output=pd.DataFrame(data={'train_loss': previous_losses, 'test_loss': test_losses, 'test_accuracy': test_accuracies})
+                output.to_csv('./pointer_logs/'+ FLAGS.problem_type+'_' + FLAGS.pointer_type+'.csv')
 
 
 if __name__ == "__main__":
