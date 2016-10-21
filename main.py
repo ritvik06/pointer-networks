@@ -5,7 +5,7 @@
 from __future__ import absolute_import, division, print_function
 
 import random
-
+import os
 import math
 import numpy as np
 import pandas as pd
@@ -164,7 +164,7 @@ class PointerNetwork(object):
             sess.run(init)
             print("Training network...")
             # for i in xrange(int(math.ceil(1000000/self.batch_size))):
-            for i in xrange(1000000): 
+            for i in xrange(100000): 
                 encoder_input_data, decoder_input_data, targets_data = dataset.next_batch(
                     self.batch_size, self.max_len, convex_hull=(FLAGS.problem_type=="convex_hull"))
                 # Train
@@ -222,6 +222,8 @@ class PointerNetwork(object):
 
 
 if __name__ == "__main__":
+    if not os.path.exists("./pointer_logs"):
+        os.makedirs("./pointer_logs")
     print("Creating pointer network...")
     pointer_network = PointerNetwork(FLAGS.max_len, 2 - (FLAGS.problem_type == 'sort'), FLAGS.rnn_size,
                                      FLAGS.num_layers, FLAGS.max_gradient_norm, FLAGS.batch_size, FLAGS.learning_rate)
