@@ -27,6 +27,6 @@ The code supports Tensorboard logging for (test) accuracy, (training) loss, and 
 ```
 tensorboard --log_dir=pointer_logs
 ```
-
+Then navigate to the address Tensorboard is running at. (The default should be `0.0.0.0:6006`.)
 ## Reference
 - Oriol Vinyals, Meire Fortunato, Navdeep Jaitly, "Pointer Networks" [arXiv:1506.03134](http://arxiv.org/abs/1506.03134)
