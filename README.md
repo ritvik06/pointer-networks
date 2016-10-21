@@ -22,6 +22,11 @@ And to build the `Multi-Ptr-Net`:
 ```
 python main.py --pointer_type=multi_hot --problem_type=convex_hull
 ```
+### Tensorboard Logging
+The code supports Tensorboard logging for (test) accuracy, (training) loss, and test loss. The default log directory is `./pointer_logs/`. To run Tensorboard:
+```
+tensorboard --log_dir=pointer_logs
+```
 
 ## Reference
 - Oriol Vinyals, Meire Fortunato, Navdeep Jaitly, "Pointer Networks" [arXiv:1506.03134](http://arxiv.org/abs/1506.03134)
