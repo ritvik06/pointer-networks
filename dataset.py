@@ -32,9 +32,10 @@ class DataGenerator(object):
 
             for b in range(batch_size):
                 sequence = np.random.rand(N, 2)
+                leftmost_point = np.argmin(sequence[:,0])
                 hull = ConvexHull(sequence)
                 v = hull.vertices
-                v = np.roll(v, -list(v).index(np.min(v))) #start from the smallest vertex
+                v = np.roll(v, -list(v).index(leftmost_point)) #start from leftmost point
                 for i in range(N):
                     reader_input_batch[i][b] = sequence[i]
 
