@@ -3,7 +3,9 @@
 Tensorflow implementation of Pointer Networks, modified to use a threshold (or hardmax) pointer instead of a softmax pointer.
 ## What is a Pointer-Network?
 In a normal sequence-to-sequence model, we train a recurrent neural network (RNN) to output a sequence of elements from an output dictionary. In Vinyals et al.'s `Ptr-Net` architecture, we train a RNN to choose an element of the input sequence to output. 
-![Sequence-to-sequence vs Pointer Net](https://github.com/Chanlaw/pointer-networks/blob/master/seq2seqVSptr.png "Sequence-to-sequence vs Pointer Net")
+
+![Sequence-to-sequence vs Pointer Net](https://github.com/Chanlaw/pointer-networks/blob/master/seq2seqVSptr.jpeg "Sequence-to-sequence vs Pointer Net")
+
 Here we introduce two new variants of the original pointer net: `Hard-Ptr-Net` and `Multi-Ptr-Net`. The difference between the three networks is what input gets fed into the pointer network during inference. In the original implementation, we take the softmax over the outputs of the pointer network and use this to blend elements of the input sequence to feed to the network.
 
 For `Hard-Ptr-Net`, we take the maximum of the outputs and use this to choose an element of the input sequence to feed to the network.
