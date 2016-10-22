@@ -17,19 +17,19 @@ from pointer import pointer_decoder
 flags = tf.app.flags
 flags.DEFINE_integer('batch_size', 128, 'Batch size.  ')
 flags.DEFINE_integer('max_len', 50, 'Size of problem.')
+flags.DEFINE_integer('num_steps', 100000, 'Number of steps to train for')
 flags.DEFINE_integer('rnn_size', 512, 'Number of RNN cells in each layer')
 flags.DEFINE_integer('num_layers', 1, 'Number of layers in the network.')
 flags.DEFINE_string('problem_type', 'convex_hull', 'What kind of problem to train on: "convex_hull", or "sort".')
 flags.DEFINE_string('pointer_type', 'one_hot', 'What kind of pointer to use: "multi_hot", "one_hot", or "soft_max"')
 flags.DEFINE_integer('steps_per_checkpoint', 100, 'How many training steps to do per checkpoint.')
-flags.DEFINE_float("max_gradient_norm", None, "Clip gradients to this norm.")
 flags.DEFINE_float('learning_rate', 0.001, "Learning rate.")
 flags.DEFINE_boolean('to_csv', True, "if true, export the averaged loss and test accuracies")
 FLAGS = flags.FLAGS
 
 class PointerNetwork(object):
     
-    def __init__(self, max_len, input_size, size, num_layers, max_gradient_norm, batch_size, learning_rate):
+    def __init__(self, max_len, input_size, size, num_layers, batch_size, learning_rate):
         """Create the network.
         
         Args:
@@ -37,17 +37,14 @@ class PointerNetwork(object):
             input_size: size of the inputs data.
             size: number of units in each layer of the model.
             num_layers: number of layers in the model.
-            max_gradient_norm: gradients will be clipped to maximally this norm.
             batch_size: the size of the batches used during training;
                 the model construction is independent of batch_size, so it can be
                 changed after initialization if this is convenient, e.g., for decoding.
             learning_rate: learning rate to start with.
-            learning_rate_decay_factor: decay learning rate by this much when needed.
         """
         self.max_len = max_len
         self.batch_size = batch_size
         self.learning_rate = learning_rate
-        self.max_gradient_norm = max_gradient_norm
         self.global_step = tf.Variable(0, trainable=False)
 
         
@@ -164,7 +161,7 @@ class PointerNetwork(object):
             sess.run(init)
             print("Training network...")
             # for i in xrange(int(math.ceil(1000000/self.batch_size))):
-            for i in xrange(100000): 
+            for i in xrange(FLAGS.num_steps): 
                 encoder_input_data, decoder_input_data, targets_data = dataset.next_batch(
                     self.batch_size, self.max_len, convex_hull=(FLAGS.problem_type=="convex_hull"))
                 # Train
@@ -226,7 +223,7 @@ if __name__ == "__main__":
         os.makedirs("./pointer_logs")
     print("Creating pointer network...")
     pointer_network = PointerNetwork(FLAGS.max_len, 2 - (FLAGS.problem_type == 'sort'), FLAGS.rnn_size,
-                                     FLAGS.num_layers, FLAGS.max_gradient_norm, FLAGS.batch_size, FLAGS.learning_rate)
+                                     FLAGS.num_layers, FLAGS.batch_size, FLAGS.learning_rate)
     dataset = DataGenerator()
     pointer_network.step()
 
