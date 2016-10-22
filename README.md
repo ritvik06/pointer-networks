@@ -36,7 +36,10 @@ steps_per_checkpoint: Print averaged train loss, test loss, and accuracy to cons
 learning_rate: The learning rate. Default 0.001.
 to_csv: Whether or not to export averaged loss and test accuracies to CSV. Default True.
 ```
-
+For example, to run a `Ptr-Net` of size `128` on the problem of sorting `10` numbers, run:
+```
+python main.py --pointer_type=softmax --rnn_size=128 --problem_type=sort --max_len=10
+```
 ### Tensorboard Logging
 The code supports Tensorboard logging for (test) accuracy, (training) loss, and test loss. The default log directory is `./pointer_logs/`. To run Tensorboard:
 ```
