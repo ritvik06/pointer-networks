@@ -22,11 +22,26 @@ And to build the `Multi-Ptr-Net`:
 ```
 python main.py --pointer_type=multi_hot --problem_type=convex_hull
 ```
+
+### Other Parameters
+In addition to the type of pointer, we can also play around with the following parameters:
+```
+batch_size: Batch size. Default 128.
+max_len: The problem size. Default 50.
+num_steps: The number of steps to train the network for. Default 100K.
+rnn_size: The number of RNN units in each layer. Default 512.
+num_layers: The number of layers in the network. Default 1.
+problem_type: What kind of problem to train on: one of 'convex_hull' or 'sort'. Default 'convex_hull'.
+steps_per_checkpoint: Print averaged train loss, test loss, and accuracy to console after this many steps. Default 100.
+learning_rate: The learning rate. Default 0.001.
+to_csv: Whether or not to export averaged loss and test accuracies to CSV. Default True.
+```
+
 ### Tensorboard Logging
 The code supports Tensorboard logging for (test) accuracy, (training) loss, and test loss. The default log directory is `./pointer_logs/`. To run Tensorboard:
 ```
 tensorboard --log_dir=pointer_logs
 ```
-
+Then navigate to the address Tensorboard is running at. (The default should be `0.0.0.0:6006`.)
 ## Reference
 - Oriol Vinyals, Meire Fortunato, Navdeep Jaitly, "Pointer Networks" [arXiv:1506.03134](http://arxiv.org/abs/1506.03134)
