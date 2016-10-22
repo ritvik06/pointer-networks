@@ -1,4 +1,4 @@
-# TensorFlow-Pointer-Networks
+# Pointer-networks
 
 Tensorflow implementation of Pointer Networks, modified to use a threshold (or hardmax) pointer instead of a softmax pointer.
 ## What is a Pointer-Network?
