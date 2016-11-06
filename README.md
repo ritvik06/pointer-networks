@@ -17,7 +17,7 @@ Here we introduce two new variants of the original pointer net: `Hard-Ptr-Net` a
 
 For `Hard-Ptr-Net`, we take the maximum of the outputs and use this to choose an element of the input sequence to feed to the network.
 
-For `Multi-Ptr-Net`, we take average of the elements of the input sequence that correspond to outputs that are greater than a threshold (`0.3` by default). (This means that the network "points" to multiple elements of the input sequence.)
+For `Multi-Ptr-Net`, we take the average of the elements of the input sequence that correspond to outputs that are greater than a threshold (`0.3` by default). (This means that the network "points" to multiple elements of the input sequence.)
 ## Running and Evaluating Pointer Networks
 The `main.py` file contains code for building and training the pointer network. To build the original `Ptr-Net` of Vinyals et al. and train it on the Convex Hull problem, run:
 ```
