@@ -20,9 +20,11 @@ flags.DEFINE_integer('max_len', 50, 'Size of problem.')
 flags.DEFINE_integer('num_steps', 100000, 'Number of steps to train for')
 flags.DEFINE_integer('rnn_size', 512, 'Number of RNN cells in each layer')
 flags.DEFINE_integer('num_layers', 1, 'Number of layers in the network.')
+flags.DEFINE_string('checkpoint_dir', 'checkpoints', 'Directory to store checkpoints')
+flags.DEFINE_string('log_dir', 'pointer_logs', 'Directory to point tensorboard log files')
 flags.DEFINE_string('problem_type', 'convex_hull', 'What kind of problem to train on: "convex_hull", or "sort".')
 flags.DEFINE_string('pointer_type', 'one_hot', 'What kind of pointer to use: "multi_hot", "one_hot", or "soft_max"')
-flags.DEFINE_integer('steps_per_checkpoint', 100, 'How many training steps to do per checkpoint.')
+flags.DEFINE_integer('steps_per_checkpoint', 200, 'How many training steps to do per checkpoint.')
 flags.DEFINE_float('learning_rate', 0.001, "Learning rate.")
 flags.DEFINE_boolean('to_csv', True, "if true, export the averaged loss and test accuracies")
 FLAGS = flags.FLAGS
@@ -110,7 +112,7 @@ class PointerNetwork(object):
 
         return feed_dict
 
-    def step(self):
+    def step(self, load_from_checkpoint=False):
 
         loss = 0.0
         for output, target, weight in zip(self.outputs, self.decoder_targets, self.target_weights):
@@ -150,17 +152,25 @@ class PointerNetwork(object):
         tf.scalar_summary('accuracy', acc)
 
         sess = tf.Session()
+        previous_losses = []
+        test_losses = []
+        test_accuracies = []
+        merged = tf.merge_all_summaries()
+
+        #add op to save and restore all the variables
+        saver = tf.train.Saver()
+
         with sess.as_default():
-            previous_losses = []
-            test_losses = []
-            test_accuracies = []
-            merged = tf.merge_all_summaries()
-            train_writer = tf.train.SummaryWriter("./pointer_logs/"+ FLAGS.problem_type +"/" + FLAGS.pointer_type+ "/train", sess.graph)
-            test_writer = tf.train.SummaryWriter("./pointer_logs/"+ FLAGS.problem_type +"/" + FLAGS.pointer_type + "/test", sess.graph)
+            train_writer = tf.train.SummaryWriter(FLAGS.log_dir + "/" + FLAGS.problem_type +"/" + FLAGS.pointer_type+ "/train", sess.graph)
+            test_writer = tf.train.SummaryWriter(FLAGS.log_dir + "/" + FLAGS.problem_type +"/" + FLAGS.pointer_type + "/test", sess.graph)
             init = tf.initialize_all_variables()
             sess.run(init)
+
+            if load_from_checkpoint:
+                print("Loading from checkpoint...")
+                saver.restore(FLAGS.checkpoint_dir + "/model.ckpt")
             print("Training network...")
-            # for i in xrange(int(math.ceil(1000000/self.batch_size))):
+
             for i in xrange(FLAGS.num_steps): 
                 encoder_input_data, decoder_input_data, targets_data = dataset.next_batch(
                     self.batch_size, self.max_len, convex_hull=(FLAGS.problem_type=="convex_hull"))
@@ -186,6 +196,8 @@ class PointerNetwork(object):
 
                 if (i+1) % FLAGS.steps_per_checkpoint == 0:
                     print('Step:', i+1, 'Learning rate:', self.learning_rate)
+                    # store checkpoint
+                    saver.save(sess, FLAGS.checkpoint_dir+"/model.ckpt")
                     print("Train Loss: ", train_loss_value)
                     previous_losses.append(train_loss_value)
                     train_loss_value = 0
@@ -207,10 +219,10 @@ class PointerNetwork(object):
                 if (i+1) % FLAGS.steps_per_checkpoint == 0:
                     print("Test Loss: ", test_loss_value)
                     test_losses.append(test_loss_value)
-                    test_loss_value = 0
+                    test_loss_value = 0.0
                     print('Test Accuracy: %.5f' % test_acc_value)
                     test_accuracies.append(test_acc_value)
-                    test_acc_value = 0
+                    test_acc_value = 0.0
                     print("----")
             # export data to csv
             if (FLAGS.to_csv):
@@ -219,11 +231,14 @@ class PointerNetwork(object):
 
 
 if __name__ == "__main__":
-    if not os.path.exists("./pointer_logs"):
-        os.makedirs("./pointer_logs")
+    # Make log and checkpoint directories if necessary
+    if not os.path.exists(FLAGS.log_dir):
+        os.makedirs(FLAGS.log_dir))
+    if not os.path.exists(FLAGS.checkpoint_dir):
+        os.makedirs(FLAGS.checkpoint_dir)
     print("Creating pointer network...")
     pointer_network = PointerNetwork(FLAGS.max_len, 2 - (FLAGS.problem_type == 'sort'), FLAGS.rnn_size,
                                      FLAGS.num_layers, FLAGS.batch_size, FLAGS.learning_rate)
     dataset = DataGenerator()
-    pointer_network.step()
+    pointer_network.step(FLAGS.)
 
