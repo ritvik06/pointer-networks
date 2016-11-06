@@ -11,7 +11,7 @@ To illustrate the differences between the two models, we can consider how the tw
 In a sequence-to-sequence model, the decoding RNN is simply a normal RNN:
 ![Sequence-to-sequence Model](https://github.com/Chanlaw/pointer-networks/blob/master/seq2seq.png "Sequence-to-sequence model")
 In a Pointer Network, the output of the decoding RNN is used to modulate an attention mechanism over elements of the original sequence:
-![Pointer Network](https://github.com/Chanlaw/pointer-networks/blob/master/ptr-net.png "Pointer Network")
+![Pointer Network](https://github.com/Chanlaw/pointer-networks/blob/master/ptr-net2.png "Pointer Network")
 
 Here we introduce two new variants of the original pointer net: `Hard-Ptr-Net` and `Multi-Ptr-Net`. The difference between the three networks is what input gets fed into the pointer network during inference. In the original implementation, we take the softmax over the outputs of the pointer network and use this to blend elements of the input sequence to feed to the network.
 
