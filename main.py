@@ -20,6 +20,7 @@ flags.DEFINE_integer('max_len', 50, 'Size of problem.')
 flags.DEFINE_integer('num_steps', 100000, 'Number of steps to train for')
 flags.DEFINE_integer('rnn_size', 512, 'Number of RNN cells in each layer')
 flags.DEFINE_integer('num_layers', 1, 'Number of layers in the network.')
+flags.DEFINE_integer('load_from_checkpoint', 1, 'Whether to load from checkpoint')
 flags.DEFINE_string('checkpoint_dir', 'checkpoints', 'Directory to store checkpoints')
 flags.DEFINE_string('log_dir', 'pointer_logs', 'Directory to put tensorboard log files')
 flags.DEFINE_string('problem_type', 'convex_hull', 'What kind of problem to train on: "convex_hull", or "sort".')
@@ -112,7 +113,7 @@ class PointerNetwork(object):
 
         return feed_dict
 
-    def step(self, load_from_checkpoint=False):
+    def step(self):
 
         loss = 0.0
         for output, target, weight in zip(self.outputs, self.decoder_targets, self.target_weights):
@@ -166,7 +167,7 @@ class PointerNetwork(object):
             init = tf.initialize_all_variables()
             sess.run(init)
 
-            if load_from_checkpoint:
+            if FLAGS.load_from_checkpoint:
                 print("Loading from checkpoint...")
                 saver.restore(FLAGS.checkpoint_dir + "/model.ckpt")
             print("Training network...")
@@ -240,5 +241,5 @@ if __name__ == "__main__":
     pointer_network = PointerNetwork(FLAGS.max_len, 2 - (FLAGS.problem_type == 'sort'), FLAGS.rnn_size,
                                      FLAGS.num_layers, FLAGS.batch_size, FLAGS.learning_rate)
     dataset = DataGenerator()
-    pointer_network.step(FLAGS.)
+    pointer_network.step()
 
