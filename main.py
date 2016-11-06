@@ -21,7 +21,7 @@ flags.DEFINE_integer('num_steps', 100000, 'Number of steps to train for')
 flags.DEFINE_integer('rnn_size', 512, 'Number of RNN cells in each layer')
 flags.DEFINE_integer('num_layers', 1, 'Number of layers in the network.')
 flags.DEFINE_string('checkpoint_dir', 'checkpoints', 'Directory to store checkpoints')
-flags.DEFINE_string('log_dir', 'pointer_logs', 'Directory to point tensorboard log files')
+flags.DEFINE_string('log_dir', 'pointer_logs', 'Directory to put tensorboard log files')
 flags.DEFINE_string('problem_type', 'convex_hull', 'What kind of problem to train on: "convex_hull", or "sort".')
 flags.DEFINE_string('pointer_type', 'one_hot', 'What kind of pointer to use: "multi_hot", "one_hot", or "soft_max"')
 flags.DEFINE_integer('steps_per_checkpoint', 200, 'How many training steps to do per checkpoint.')
@@ -233,7 +233,7 @@ class PointerNetwork(object):
 if __name__ == "__main__":
     # Make log and checkpoint directories if necessary
     if not os.path.exists(FLAGS.log_dir):
-        os.makedirs(FLAGS.log_dir))
+        os.makedirs(FLAGS.log_dir)
     if not os.path.exists(FLAGS.checkpoint_dir):
         os.makedirs(FLAGS.checkpoint_dir)
     print("Creating pointer network...")
