@@ -5,6 +5,7 @@ Tensorflow implementation of Pointer Networks, modified to use a threshold (or h
 In a normal sequence-to-sequence model, we train a recurrent neural network (RNN) to output a sequence of elements from an output dictionary. In Vinyals et al.'s `Ptr-Net` architecture, we train a RNN to choose an element of the input sequence to output. 
 
 To illustrate the differences between the two models, we can consider how the two networks will treat a toy problem - that of computing the planar convex hull of the five points (generated randomly using numpy) `(0.248, 0.683), (0.986, 0.224), (0.006, 1.000), (0.127, 0.157), (0.165, 0.274)`. In this case, the input is the sequence `[(0.248, 0.683), (0.986, 0.224), (0.006, 1.000), (0.127, 0.157), (0.165, 0.274)]` and the desired output is a permutation of `1,2,3` - correspoding to the three points on the convex hull`(0.006, 1.000), (0.127, 0.157), (0.986, 0.224)`:
+
 ![Convex Hull of Five Points](https://github.com/Chanlaw/pointer-networks/blob/master/convex_hull.png "Convex Hull of Five Points")
 
 In a sequence-to-sequence model, the decoding RNN is simply a normal RNN:
