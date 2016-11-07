@@ -169,7 +169,7 @@ class PointerNetwork(object):
 
             if FLAGS.load_from_checkpoint:
                 print("Loading from checkpoint...")
-                saver.restore(sess, FLAGS.checkpoint_dir+"/" + FLAGS.pointer_type +  "_model.ckpt")
+                saver.restore(sess, FLAGS.checkpoint_dir+"/" + FLAGS.pointer_type +  "/model.ckpt")
             print("Training network...")
 
             for i in xrange(FLAGS.num_steps): 
@@ -198,7 +198,7 @@ class PointerNetwork(object):
                 if (i+1) % FLAGS.steps_per_checkpoint == 0:
                     print('Step:', i+1, 'Learning rate:', self.learning_rate)
                     # store checkpoint
-                    saver.save(sess, FLAGS.checkpoint_dir+"/" + FLAGS.pointer_type +  "_model.ckpt")
+                    saver.save(sess, FLAGS.checkpoint_dir+"/" + FLAGS.pointer_type +  "/model.ckpt")
                     print("Train Loss: ", train_loss_value)
                     previous_losses.append(train_loss_value)
                     train_loss_value = 0
