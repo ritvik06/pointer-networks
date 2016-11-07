@@ -169,7 +169,7 @@ class PointerNetwork(object):
 
             if FLAGS.load_from_checkpoint:
                 print("Loading from checkpoint...")
-                saver.restore(sess, FLAGS.checkpoint_dir + "/model_" +FLAGS.pointer_type ".ckpt")
+                saver.restore(sess, FLAGS.checkpoint_dir+"/" + FLAGS.pointer_type +  "_model.ckpt")
             print("Training network...")
 
             for i in xrange(FLAGS.num_steps): 
