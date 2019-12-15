@@ -1,7 +1,3 @@
-"""Implementation of Pointer networks: http://arxiv.org/pdf/1506.03134v1.pdf.
-"""
-
-
 from __future__ import absolute_import, division, print_function
 
 import random
