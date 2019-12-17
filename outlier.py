@@ -50,8 +50,8 @@ for i in range(2,values.shape[1],1):
     for j in range(values.shape[0]):
         # print(values[j,i])
         #Normalisation step
-        print((float(values[j,i]) - min_value))
-        print(max_value-min_value)
+        # print((float(values[j,i]) - min_value))
+        # print(max_value-min_value)
         new_values[j,i] = float((float(values[j,i]) - min_value)/(max_value-min_value))
         print(new_values[j,i])
 
