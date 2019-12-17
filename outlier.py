@@ -4,15 +4,11 @@ from numpy import mean
 from numpy import std
 from numpy import delete
 from numpy import savetxt
-# load the dataset.
-# data = read_csv('./EEGEYE_raw.csv', header=None)
-with open("EEGEYE_raw.csv",'r') as f:
-    with open("EEGEYE.csv",'w') as f1:
-        next(f) # skip header line
-        for line in f:
-            f1.write(line)
+import numpy as np
+from sklearn.preprocessing import normalize
 
-# step over each EEG column
+# load the dataset.
+# data = read_csv('./EEGEYE_raw.csv', header=None)_
 
 data = read_csv('./EEGEYE.csv', header=None)
 
@@ -35,4 +31,31 @@ for i in range(2,values.shape[1] - 1,1):
     values = delete(values, too_large, 0)
     print('>deleted %d rows' % len(too_large))
 # save the results to a new file
-savetxt('EEG_no_outliers.csv', values, delimiter=',')
+print(values[0,2])
+values = np.asarray(values,dtype=np.int64,order='C')
+print(values[0,2])
+savetxt('EEG_no_outliers.csv', values, delimiter=',',fmt='%0.0f')
+
+#Now comes the normalise step
+
+data = read_csv('./EEG_no_outliers.csv')
+new_values = np.zeros((values.shape[0],values.shape[1]))
+
+for i in range(2,values.shape[1],1):
+    column = values[:,i]
+    max_value = float(np.max(column))
+    min_value = float(np.min(column))
+
+
+    for j in range(values.shape[0]):
+        # print(values[j,i])
+        #Normalisation step
+        print((float(values[j,i]) - min_value))
+        print(max_value-min_value)
+        new_values[j,i] = float((float(values[j,i]) - min_value)/(max_value-min_value))
+        print(new_values[j,i])
+
+savetxt('EEG_norm.csv', new_values, delimiter=',',fmt='%0.3f')
+
+
+
