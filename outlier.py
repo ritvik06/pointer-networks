@@ -10,7 +10,7 @@ from sklearn.preprocessing import normalize
 # load the dataset.
 # data = read_csv('./EEGEYE_raw.csv', header=None)_
 
-data = read_csv('./EEGEYE.csv', header=None)
+data = read_csv('./EEG_down.csv', header=None)
 
 values = data.values
 
